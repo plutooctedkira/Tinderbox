@@ -1,0 +1,38 @@
+# ══════════════════════════════════════════════════════════
+#  只提交项目代码本身。任何装着记忆内容的东西一律不上传。
+#  （日记原文、心理记录这类东西一旦推上公开仓库就收不回来了）
+# ══════════════════════════════════════════════════════════
+
+# ── 记忆内容：Obsidian 笔记本体 ──
+obsidian_vault/
+
+# ── 记忆内容：OB 导出件 ──
+# 注意 ob_batch*/ob_letters*/ob_plans* 里是日记原文和计划，
+# 原来的规则漏了它们，改成整个 ob_*.json 全挡
+ob_*.json
+*_export.json
+*_sample.json
+
+# ── 记忆内容：数据库（含 WAL 副本，副本里同样有正文）──
+*.db
+*.db-wal
+*.db-shm
+
+# ── 密钥 ──
+.env
+*.env
+!.env.example
+
+# ── Python ──
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.coverage
+
+# ── 编辑器 / 系统 ──
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

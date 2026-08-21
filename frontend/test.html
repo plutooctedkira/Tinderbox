@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>Test</title>
+<style>
+body{font-family:sans-serif;margin:20px;background:#F5F0DF}
+button{padding:8px 16px;margin:4px;cursor:pointer;font-size:14px}
+.card{border:1px solid #ccc;padding:10px;margin:8px 0;border-radius:6px;background:#fff}
+#dbg{position:fixed;bottom:10px;right:10px;background:#333;color:#0f0;padding:6px 12px;font:11px monospace;z-index:999}
+</style></head><body>
+<h2>Memory Vault Test Page</h2>
+<button onclick="testAPI()">Test Dashboard API</button>
+<button onclick="testStats()">Test Stats API</button>
+<div id="out" style="margin-top:16px;white-space:pre-wrap;font-family:monospace;font-size:12px"></div>
+<div id="dbg">ready</div>
+<script>
+var D=document.getElementById("dbg");
+function log(m){D.textContent=m;console.log(m)}
+log("js loaded");
+function testAPI(){
+    log("fetching dashboard...");
+    fetch("http://localhost:8765/api/dashboard")
+        .then(function(r){return r.json()})
+        .then(function(d){
+            log("data: active="+d.active);
+            document.getElementById("out").textContent=JSON.stringify(d,null,2);
+        })
+        .catch(function(e){
+            log("ERR:"+e);
+            document.getElementById("out").textContent="Error: "+e;
+        });
+}
+function testStats(){
+    log("fetching stats...");
+    fetch("http://localhost:8765/api/stats")
+        .then(function(r){return r.json()})
+        .then(function(d){
+            log("stats ok");
+            document.getElementById("out").textContent=JSON.stringify(d,null,2);
+        })
+        .catch(function(e){
+            log("ERR:"+e);
+        });
+}
+</script></body></html>

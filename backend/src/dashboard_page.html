@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Memory Vault</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#0f1117;color:#c9d1d9;min-height:100vh}
+.header{background:#161b22;border-bottom:1px solid #30363d;padding:16px 24px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.header h1{font-size:20px;color:#58a6ff}
+.nav{display:flex;gap:8px}
+.nav button{padding:8px 16px;border:1px solid #30363d;border-radius:6px;background:transparent;color:#c9d1d9;cursor:pointer;font-size:14px;transition:.2s}
+.nav button:hover,.nav button.active{background:#1f6feb;border-color:#1f6feb;color:#fff}
+.main{padding:24px;max-width:1200px;margin:0 auto}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:16px;margin-bottom:24px}
+.stat-card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:16px;text-align:center}
+.stat-card .num{font-size:32px;font-weight:700;color:#58a6ff}
+.stat-card .label{font-size:13px;color:#8b949e;margin-top:4px}
+.search-box{display:flex;gap:8px;margin-bottom:16px}
+.search-box input{flex:1;padding:10px 16px;background:#0d1117;border:1px solid #30363d;border-radius:8px;color:#c9d1d9;font-size:15px;outline:none}
+.search-box input:focus{border-color:#1f6feb}
+.btn-primary{padding:10px 20px;background:#238636;border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:14px;font-weight:600}
+.btn-primary:hover{background:#2ea043}
+.btn-secondary{padding:10px 20px;background:#30363d;border:none;border-radius:8px;color:#c9d1d9;cursor:pointer;font-size:14px}
+.filters{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.filter-tag{padding:6px 14px;border:1px solid #30363d;border-radius:20px;background:transparent;color:#8b949e;cursor:pointer;font-size:13px}
+.filter-tag:hover,.filter-tag.active{background:#1f6feb;border-color:#1f6feb;color:#fff}
+.memory-list{display:flex;flex-direction:column;gap:10px}
+.memory-card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:14px;cursor:pointer;transition:.2s}
+.memory-card:hover{border-color:#1f6feb}
+.memory-card .meta{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+.memory-card .content-preview{font-size:14px;line-height:1.6;max-height:48px;overflow:hidden}
+.memory-card.expanded .content-preview{max-height:none}
+.memory-card .actions{display:none;gap:8px;margin-top:10px}
+.memory-card.expanded .actions{display:flex}
+.cat{font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600}
+.cat-preference{background:#1f6feb22;color:#58a6ff}
+.cat-task{background:#d2992222;color:#d29922}
+.cat-decision{background:#f8514922;color:#f85149}
+.cat-knowledge{background:#3fb95022;color:#3fb950}
+.cat-fiction_inspiration{background:#a371f722;color:#a371f7}
+.conf{font-size:11px;padding:2px 6px;border-radius:6px}
+.conf-high{background:#3fb95033;color:#3fb950}
+.conf-medium{background:#d2992233;color:#d29922}
+.conf-low{background:#8b949e33;color:#8b949e}
+.badge{font-size:11px;padding:2px 6px;border-radius:4px}
+.badge-pin{background:#f8514933;color:#f85149}
+.badge-anchor{background:#a371f733;color:#a371f7}
+.weight{font-size:12px;color:#8b949e;margin-left:auto}
+.modal-bg{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:#000000aa;z-index:100;justify-content:center;align-items:center}
+.modal-bg.show{display:flex}
+.modal{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:24px;max-width:600px;width:90%;max-height:80vh;overflow-y:auto}
+.modal h2{color:#58a6ff;margin-bottom:16px;font-size:18px}
+.modal textarea,.modal select{width:100%;padding:10px;margin-bottom:12px;background:#0d1117;border:1px solid #30363d;border-radius:8px;color:#c9d1d9;font-size:14px;font-family:inherit}
+.modal textarea{min-height:120px;resize:vertical}
+.modal .btns{display:flex;gap:8px;justify-content:flex-end}
+.toast{position:fixed;bottom:24px;right:24px;padding:12px 24px;border-radius:8px;background:#238636;color:#fff;font-size:14px;z-index:200}
+.loading{text-align:center;padding:40px;color:#8b949e}
+.empty{text-align:center;padding:60px 20px;color:#8b949e;font-size:16px}
+.empty-icon{font-size:48px;margin-bottom:12px}
+</style>
+</head>
+<body>
+<div class="header">
+<h1>Memory Vault</h1>
+<div class="nav">
+<button class="active" data-tab="dashboard">Dashboard</button>
+<button data-tab="browse">Browse</button>
+<button data-tab="search">Search</button>
+</div>
+<button class="btn-primary" onclick="openAddModal()" style="margin-left:auto">+ New</button>
+</div>
+<div class="main" id="main"></div>
+<div class="modal-bg" id="modalBg" onclick="if(event.target===this)closeModal()">
+<div class="modal" id="modalContent"></div>
+</div>
+<script>
+var API='/api';var curTab='dashboard';var curCat='all';var mems=[];
+function api(p,o){o=o||{};o.headers=o.headers||{};o.headers['Content-Type']='application/json';return fetch(API+p,o).then(function(r){return r.json()})}
+function toast(m){var t=document.createElement('div');t.className='toast';t.textContent=m;document.body.appendChild(t);setTimeout(function(){t.remove()},2500)}
+function loadDash(){
+document.getElementById('main').innerHTML='<div class="loading">Loading...</div>';
+Promise.all([api('/stats'),api('/surfaced?limit=5')]).then(function(r){var s=r[0];var items=(r[1].items||[]).map(card).join('');
+var cats=['total','active'];Object.keys(s.by_category||{}).forEach(function(k){cats.push(k)});
+var labels={total:'Total',active:'Active',task:'Tasks',knowledge:'Knowledge',decision:'Decisions',preference:'Preferences',fiction_inspiration:'Inspirations'};
+var statCards=cats.map(function(k){var v=(k==='total'?s.total:k==='active'?s.active:(s.by_category||{})[k]||0);return '<div class="stat-card"><div class="num">'+v+'</div><div class="label">'+(labels[k]||k)+'</div></div>'}).join('');
+document.getElementById('main').innerHTML=statCards+'<h3 style="margin-bottom:12px;color:#58a6ff">Top Memories</h3><div class="memory-list">'+(items||'<div class="empty">No memories yet</div>')+'</div>';
+bindCards();
+});
+}
+function loadBrowse(cat){curCat=cat||'all';
+var cats=['all','task','knowledge','decision','preference','fiction_inspiration'],labels={all:'All',task:'Tasks',knowledge:'Knowledge',decision:'Decisions',preference:'Preferences',fiction_inspiration:'Inspirations'};
+var filters=cats.map(function(c){return '<button class="filter-tag'+(c===curCat?' active':'')+'" onclick="loadBrowse(''+c+'')">'+labels[c]+'</button>'}).join('');
+api('/browse?category='+curCat+'&limit=50').then(function(data){mems=data.items||[];
+document.getElementById('main').innerHTML='<div class="filters">'+filters+'</div><div class="memory-list">'+(mems.length?mems.map(card).join(''):'<div class="empty"><div class="empty-icon">O</div>No memories</div>')+'</div>';
+bindCards();
+});
+}
+function loadSearch(){
+document.getElementById('main').innerHTML='<div class="search-box"><input id="q" placeholder="Search memories..." onkeydown="if(event.keyCode===13)doSearch()"><button class="btn-primary" onclick="doSearch()">Search</button></div><div id="results" class="memory-list"><div class="empty"><div class="empty-icon">/</div>Enter keywords</div></div>';
+}
+function doSearch(){var q=document.getElementById('q').value.trim();if(!q)return;
+document.getElementById('results').innerHTML='<div class="loading">Searching...</div>';
+api('/search?q='+encodeURIComponent(q)).then(function(data){mems=data.items||[];
+document.getElementById('results').innerHTML=mems.length?mems.map(card).join(''):'<div class="empty">No results</div>';
+bindCards();
+});
+}
+function card(m){return'<div class="memory-card" data-id="'+m.id+'" onclick="toggleCard(this)"><div class="meta"><span class="cat cat-'+m.category+'">'+m.category+'</span><span class="conf conf-'+m.confidence+'">'+m.confidence+'</span>'+(m.pin?'<span class="badge badge-pin">PIN</span>':'')+(m.anchor?'<span class="badge badge-anchor">ANC</span>':'')+'<span class="weight">w:'+(m.weight||1).toFixed(2)+'</span></div><div class="content-preview">'+esc(m.content)+'</div><div class="actions"><button class="btn-primary" style="font-size:12px;padding:6px 12px" onclick="event.stopPropagation();pinIt(''+m.id+'','+m.pin+')">'+(m.pin?'Unpin':'Pin')+'</button><button class="btn-secondary" style="font-size:12px;padding:6px 12px" onclick="event.stopPropagation();openSupersede(''+m.id+'')">Supersede</button></div></div>'}
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function bindCards(){var cards=document.querySelectorAll('.memory-card');for(var i=0;i<cards.length;i++){cards[i].addEventListener('click',function(e){if(!e.target.closest('button')){this.classList.toggle('expanded')}})}}
+function toggleCard(el){el.classList.toggle('expanded')}
+function switchTab(tab){curTab=tab;var btns=document.querySelectorAll('.nav button');for(var i=0;i<btns.length;i++)btns[i].classList.remove('active');document.querySelector('[data-tab="'+tab+'"]').classList.add('active');if(tab==='dashboard')loadDash();else if(tab==='browse')loadBrowse();else loadSearch()}
+var navBtns=document.querySelectorAll('.nav button');for(var i=0;i<navBtns.length;i++){navBtns[i].addEventListener('click',function(){switchTab(this.dataset.tab)})}
+function pinIt(id,pin){api('/pin/'+id,{method:'POST',body:JSON.stringify({pin:pin?0:1})}).then(function(r){if(r.ok)toast(pin?'Unpinned':'Pinned');loadBrowse(curCat)})}
+function openSupersede(id){document.getElementById('modalContent').innerHTML='<h2>Supersede Memory</h2><p style="color:#8b949e;margin-bottom:8px">Create new version replacing '+id+'</p><textarea id="supContent" placeholder="New content..."></textarea><div class="btns"><button class="btn-secondary" onclick="closeModal()">Cancel</button><button class="btn-primary" onclick="doSupersede(''+id+'')">Confirm</button></div>';document.getElementById('modalBg').classList.add('show')}
+function doSupersede(oldId){var c=document.getElementById('supContent').value.trim();if(!c)return;api('/supersede',{method:'POST',body:JSON.stringify({old_entry_id:oldId,new_content:c})}).then(function(r){if(r.ok)toast('Superseded');closeModal();if(curTab==='browse')loadBrowse(curCat);else loadDash()})}
+function closeModal(){document.getElementById('modalBg').classList.remove('show')}
+function openAddModal(){document.getElementById('modalContent').innerHTML='<h2>New Memory</h2><select id="addCat"><option value="knowledge">Knowledge</option><option value="task">Task</option><option value="decision">Decision</option><option value="preference">Preference</option><option value="fiction_inspiration">Inspiration</option></select><select id="addConf"><option value="high">High</option><option value="medium" selected>Medium</option><option value="low">Low</option></select><textarea id="addContent" placeholder="Content..."></textarea><div class="btns"><button class="btn-secondary" onclick="closeModal()">Cancel</button><button class="btn-primary" onclick="addMemory()">Save</button></div>';document.getElementById('modalBg').classList.add('show')}
+function addMemory(){var cat=document.getElementById('addCat').value;var conf=document.getElementById('addConf').value;var content=document.getElementById('addContent').value.trim();if(!content)return;api('/add',{method:'POST',body:JSON.stringify({category:cat,confidence:conf,content:content})}).then(function(r){if(r.ok)toast('Saved');closeModal();if(curTab==='browse')loadBrowse(curCat);else loadDash()})}
+loadDash();
+</script>
+</body>
+</html>

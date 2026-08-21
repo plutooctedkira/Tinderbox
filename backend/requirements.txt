@@ -1,0 +1,4 @@
+﻿mcp>=1.9,<2  # 2.0 移走了 mcp.server.fastmcp，会直接 import 失败
+openai>=1.0.0
+jieba>=0.42.1
+python-dotenv>=1.0.0
