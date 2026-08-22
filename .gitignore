@@ -6,6 +6,9 @@
 # ── 记忆内容：Obsidian 笔记本体 ──
 obsidian_vault/
 
+# ── 个人文档：架构方案（仅本地保留，不上传）──
+Tinderbox_Architecture.md
+
 # ── 记忆内容：OB 导出件 ──
 # 注意 ob_batch*/ob_letters*/ob_plans* 里是日记原文和计划，
 # 原来的规则漏了它们，改成整个 ob_*.json 全挡
