@@ -16,7 +16,8 @@ from pathlib import Path
 from datetime import datetime, timezone
 from typing import Optional
 
-from .db import OBSIDIAN_VAULT_PATH
+from .db import OBSIDIAN_VAULT_PATH, get_feature_flag
+from .hooks import trigger
 
 logger = logging.getLogger("memory.storage")
 
@@ -58,12 +59,17 @@ def insert_memory(
 
     logger.info("记忆已存储: %s [%s]", entry_id, category)
 
-    # Obsidian 导出（非关键路径）
-    try:
-        export_to_obsidian(entry_id, user_id, category, content,
-                           keywords or [], "active")
-    except Exception as e:
-        logger.warning("Obsidian 导出失败: %s", e)
+    # Obsidian 导出（非关键路径；feature.obsidian_export 关了则跳过）
+    if get_feature_flag(conn, "feature.obsidian_export"):
+        try:
+            export_to_obsidian(entry_id, user_id, category, content,
+                               keywords or [], "active")
+        except Exception as e:
+            logger.warning("Obsidian 导出失败: %s", e)
+
+    trigger("memory_inserted", entry_id=entry_id, user_id=user_id,
+            category=category, content=content, confidence=confidence,
+            mtype=mtype, meta=meta)
 
     return entry_id
 
@@ -130,16 +136,20 @@ def supersede_memory(
         logger.error("Supersede 失败: %s", e)
         raise
 
-    # Obsidian 导出
-    try:
-        export_to_obsidian(new_entry_id, old_entry["user_id"],
-                           final_category, new_content, final_keywords, "active")
-        export_to_obsidian(old_entry_id, old_entry["user_id"],
-                           old_entry["category"],
-                           f"> 此记忆已被取代\n> 新版本: [[{new_entry_id}]]\n\n{old_entry['content']}",
-                           [], "superseded")
-    except Exception as e:
-        logger.warning("Obsidian 导出失败: %s", e)
+    # Obsidian 导出（feature.obsidian_export 关了则跳过）
+    if get_feature_flag(conn, "feature.obsidian_export"):
+        try:
+            export_to_obsidian(new_entry_id, old_entry["user_id"],
+                               final_category, new_content, final_keywords, "active")
+            export_to_obsidian(old_entry_id, old_entry["user_id"],
+                               old_entry["category"],
+                               f"> 此记忆已被取代\n> 新版本: [[{new_entry_id}]]\n\n{old_entry['content']}",
+                               [], "superseded")
+        except Exception as e:
+            logger.warning("Obsidian 导出失败: %s", e)
+
+    trigger("memory_superseded", old_entry_id=old_entry_id,
+            new_entry_id=new_entry_id, category=final_category)
 
     return (old_entry_id, new_entry_id)
 

@@ -14,7 +14,8 @@ import sqlite3
 from datetime import datetime, timezone
 from typing import Optional
 
-from .db import segment_cjk
+from .db import segment_cjk, get_feature_flag
+from .hooks import trigger
 
 logger = logging.getLogger("memory.retriever")
 
@@ -127,6 +128,9 @@ def retrieve_memories(
     if results:
         boost_hits(conn, [r["id"] for r in results])
 
+    trigger("memory_retrieved", query=query, user_id=user_id,
+            results=results, count=len(results))
+
     logger.info("检索 '%s' → %d 条结果", query, len(results))
     return results
 
@@ -140,6 +144,8 @@ def get_active_surfaced_memories(
     主动上下文浮现：按权重 × 时效性自动推送高价值记忆。
     优先: pin > anchor > 决策 > 任务 > 知识 > 偏好 > 灵感
     """
+    if not get_feature_flag(conn, "feature.surface"):
+        return []
     rows = conn.execute("""
         SELECT entry_id, content, category, confidence, weight,
                pin, anchor, last_accessed_at

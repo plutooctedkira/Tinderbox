@@ -9,9 +9,11 @@ class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from dotenv import load_dotenv
 load_dotenv()
-from src.db import init_db, get_db_connection, segment_cjk
+from src.db import init_db, get_db_connection, segment_cjk, get_feature_flag
 from src.retriever import boost_hits
+from src.hooks import load_plugins
 init_db()
+load_plugins()
 
 # v3 是带日记/计划分页的完整界面（在 frontend/ 下）
 HTML_PATH = os.path.join(
@@ -165,6 +167,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 rows = conn.execute("SELECT entry_id,content,category,confidence,weight,status,created_at FROM memory_entries WHERE type='dev_log' AND status IN ('active','completed') ORDER BY created_at DESC LIMIT 200").fetchall()
                 return self._json({"memories": [dict(r) for r in rows]})
             elif p.path == "/api/plans":
+                if not get_feature_flag(conn, "feature.plan"):
+                    return self._json({"plans": []})
                 # 计划 = category='task' 且 type 以 plan- 开头（前端 savePlan 传的 type
                 # 是 plan-life / plan-work / plan-dev）。已完成的也要返回，前端会置灰显示
                 rows = conn.execute("SELECT entry_id,content,type AS plan_type,status,confidence,weight,created_at,COALESCE(progress,0) AS progress FROM memory_entries WHERE category='task' AND type LIKE 'plan-%' AND status IN ('active','completed') ORDER BY created_at DESC LIMIT 200").fetchall()
@@ -202,6 +206,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
                         d["old"] = None
                     conflicts.append(d)
                 return self._json({"conflicts":conflicts})
+            elif p.path == "/api/config":
+                rows = conn.execute("SELECT key, value, description, updated_at FROM config ORDER BY key").fetchall()
+                return self._json({"flags": [dict(r) for r in rows]})
             return self._json({"error":"Not found"},404)
         finally:
             conn.close()
@@ -263,6 +270,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
             # 这样旧的按 status 过滤的地方不用改也还是对的
             conn = get_db_connection()
             try:
+                if not get_feature_flag(conn, "feature.plan"):
+                    return self._json({"error": "计划功能已关闭"}, 403)
                 pg = max(0, min(100, int(body.get("progress", 0))))
                 st = "completed" if pg >= 100 else "active"
                 conn.execute("UPDATE memory_entries SET progress=?, status=? WHERE entry_id=?",
@@ -317,6 +326,26 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     conn.execute(f"UPDATE memory_entries SET status='active',weight=1.0 WHERE entry_id IN ({ph})", ids)
                 conn.commit()
                 return self._json({"status":"ok","count":len(ids)})
+            finally:
+                conn.close()
+
+        elif self.path == "/api/config":
+            conn = get_db_connection()
+            try:
+                key = (body.get("key") or "").strip()
+                value = str(body.get("value", "true")).strip().lower()
+                if not key.startswith("feature."):
+                    return self._json({"error": "key 必须以 feature. 开头"}, 400)
+                if value not in ("true", "false"):
+                    return self._json({"error": "value 必须是 true 或 false"}, 400)
+                conn.execute(
+                    "INSERT INTO config (key, value) VALUES (?, ?) "
+                    "ON CONFLICT(key) DO UPDATE SET value=excluded.value, "
+                    "updated_at=strftime('%Y-%m-%d %H:%M:%S','now','utc')",
+                    (key, value)
+                )
+                conn.commit()
+                return self._json({"key": key, "value": value})
             finally:
                 conn.close()
 

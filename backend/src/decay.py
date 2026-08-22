@@ -13,7 +13,8 @@ import sqlite3
 import logging
 from datetime import datetime, timedelta, timezone
 
-from .db import get_db_connection
+from .db import get_db_connection, get_feature_flag
+from .hooks import trigger
 
 logger = logging.getLogger("memory.decay")
 
@@ -36,6 +37,9 @@ def run_daily_decay(db_path: str):
              "logs_cleaned": 0, "tables_dropped": 0}
 
     try:
+        if not get_feature_flag(conn, "feature.decay"):
+            logger.info("衰减功能已关闭（feature.decay=false），跳过")
+            return stats
         with conn:
             # 1. 任务衰减 5%
             cur = conn.execute("""
@@ -131,6 +135,7 @@ def run_daily_decay(db_path: str):
     finally:
         conn.close()
 
+    trigger("memory_decayed", stats=stats)
     return stats
 
 

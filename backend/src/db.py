@@ -48,6 +48,28 @@ def get_db_connection(db_path: str = DB_PATH) -> sqlite3.Connection:
     return conn
 
 
+# 功能开关的默认值。key 不存在时按默认值判断；init_db 会把它们写进 config 表
+FEATURE_FLAGS = {
+    "feature.plan": ("true", "计划功能（plan-life/work/dev）"),
+    "feature.surface": ("true", "主动上下文浮现"),
+    "feature.decay": ("true", "每日权重衰减与归档"),
+    "feature.obsidian_export": ("true", "Obsidian .md 导出"),
+}
+
+
+def get_feature_flag(conn, key: str, default: bool = True) -> bool:
+    """读取功能开关。value 为 true/1/yes/on 视为开启，其余视为关闭。
+
+    key 在 config 表里不存在时返回 default，保证旧库升级后不破坏行为。
+    """
+    row = conn.execute(
+        "SELECT value FROM config WHERE key = ?", (key,)
+    ).fetchone()
+    if row is None:
+        return default
+    return str(row["value"]).strip().lower() in ("true", "1", "yes", "on", "enabled")
+
+
 SQL_INIT = """
 -- ================================================================
 -- 1. 主记忆与灵感表
@@ -236,6 +258,17 @@ CREATE INDEX IF NOT EXISTS idx_logs_timestamp
     ON memory_logs(timestamp);
 CREATE INDEX IF NOT EXISTS idx_archive_user
     ON memory_entries_archive(user_id);
+
+-- ================================================================
+-- 8. 功能开关配置表
+-- ================================================================
+CREATE TABLE IF NOT EXISTS config (
+    key         TEXT PRIMARY KEY,
+    value       TEXT NOT NULL DEFAULT 'true',
+    description TEXT,
+    updated_at  TEXT DEFAULT (
+        strftime('%Y-%m-%d %H:%M:%S', 'now', 'utc'))
+);
 """
 
 
@@ -255,6 +288,12 @@ def init_db(db_path: str = DB_PATH) -> sqlite3.Connection:
                 conn.execute(f"ALTER TABLE {table} ADD COLUMN {col}")
             except sqlite3.OperationalError:
                 pass  # 列已存在
+        # 注册功能开关默认值（INSERT OR IGNORE：已存在的不覆盖，用户改过的保留）
+        for key, (val, desc) in FEATURE_FLAGS.items():
+            conn.execute(
+                "INSERT OR IGNORE INTO config (key, value, description) VALUES (?, ?, ?)",
+                (key, val, desc)
+            )
         conn.commit()
         logger.info("数据库初始化完成: %s", db_path)
     except Exception as e:

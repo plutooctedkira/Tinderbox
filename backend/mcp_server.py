@@ -20,13 +20,15 @@ logging.basicConfig(
 
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
-from src.db import get_db_connection, init_db
+from src.db import get_db_connection, init_db, get_feature_flag
 from src.storage import insert_memory, supersede_memory
 from src.ingest import extract_memories_with_retry
 from src.retriever import retrieve_memories, get_active_surfaced_memories
+from src.hooks import load_plugins
 
 # 初始化数据库
 init_db()
+load_plugins()
 
 # 传输方式由环境变量决定：
 #   不设 = stdio（本地 Cline/Claude Desktop 拉起进程用）
@@ -213,6 +215,8 @@ def create_plan(content: str, plan_type: str = "plan-life",
         return f"plan_type 只能是 {', '.join(PLAN_TYPES)}"
     conn = get_db_connection()
     try:
+        if not get_feature_flag(conn, "feature.plan"):
+            return "计划功能已关闭（feature.plan=false）"
         entry_id = insert_memory(conn, user_id, session_id, "task", content,
                                  "high", mtype=plan_type)
         return f"计划已创建：{entry_id}"
@@ -232,6 +236,8 @@ def list_plans(user_id: str = "default", plan_type: str = "",
     """
     conn = get_db_connection()
     try:
+        if not get_feature_flag(conn, "feature.plan"):
+            return []
         sql = ["SELECT entry_id, content, type AS plan_type, status, created_at,",
                "COALESCE(progress,0) AS progress",
                "FROM memory_entries",
@@ -263,6 +269,8 @@ def set_plan_progress(entry_id: str, progress: int) -> str:
     pg = max(0, min(100, int(progress)))
     conn = get_db_connection()
     try:
+        if not get_feature_flag(conn, "feature.plan"):
+            return "计划功能已关闭（feature.plan=false）"
         row = conn.execute(
             "SELECT COALESCE(progress,0) FROM memory_entries WHERE entry_id = ? AND category = 'task'",
             (entry_id,)
