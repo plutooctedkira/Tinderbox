@@ -13,8 +13,7 @@ from src.db import init_db, get_db_connection, segment_cjk
 from src.retriever import boost_hits
 init_db()
 
-# v3 是带日记/计划分页的完整界面（在 frontend/ 下）；
-# 同目录的 dashboard_v2.html 只是个写着 OK 的 48 字节占位文件，别再指过去了
+# v3 是带日记/计划分页的完整界面（在 frontend/ 下）
 HTML_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
     "frontend", "dashboard_v3.html")
@@ -51,14 +50,6 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         p = urllib.parse.urlparse(self.path)
         q = dict(urllib.parse.parse_qsl(p.query))
-        if False:
-            self.send_response(200)
-            self.send_header("Content-Type", "application/javascript; charset=utf-8")
-            self.end_headers()
-            js_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dashboard.js")
-            with open(js_path, "rb") as f:
-                self.wfile.write(f.read())
-            return
 
         # 前端目录下的图片（logo 等）。只放行图片后缀 + 只取文件名，
         # 防止 ../../ 之类的路径穿越读到别的文件
