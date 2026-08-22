@@ -1,7 +1,7 @@
 # Tinderbox 记忆系统 — 结构与运行说明
 
 > 路径：`C:\Users\PlutootedKira\Tinderbox`
-> 版本：v6.0 生产级（含后续演进：CJK 分词检索、命中加权、计划/日记/开发日志、Obsidian 迁移）
+> （含后续演进：CJK 分词检索、命中加权、计划/日记/开发日志、Obsidian 迁移）
 
 Tinderbox 是一个基于 **SQLite + FTS5 + Python** 的高性能底层记忆与小说灵感引擎。
 前端是纯 HTML/JS 单页（无构建），后端是标准库 `http.server` 的轻量 API 服务，
@@ -41,7 +41,7 @@ Tinderbox/
 ├── obsidian_vault/           # Obsidian 笔记目录（.md 按分类分文件夹）
 │   ├── knowledge/  decision/  task/  preference/  fiction_inspiration/  diary/
 │
-├── Memory_Vault_Architecture.md   # 架构方案文档
+├── Tinderbox_Architecture.md   # 架构方案文档
 └── .gitignore
 ```
 
