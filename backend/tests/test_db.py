@@ -7,7 +7,7 @@ import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.db import init_db, get_db_connection
+from src.db import init_db, get_db_connection, segment_cjk
 
 
 def test_tables_exist():
@@ -66,7 +66,7 @@ def test_fts5_insert_trigger():
         "SELECT * FROM memory_fts WHERE entry_id = 'test-insert'"
     ).fetchone()
     assert row is not None, "FTS5 未自动索引 active 记忆"
-    assert "FTS5触发器测试" in row["tokenized_content"]
+    assert row["tokenized_content"] == segment_cjk("FTS5触发器测试")
     print("[OK] INSERT 触发器: FTS5 自动同步 active 记忆")
 
     conn.close()
