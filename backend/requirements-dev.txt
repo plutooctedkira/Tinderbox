@@ -1,0 +1,8 @@
+# 开发 / 测试依赖
+# 安装方式: pip install -r requirements-dev.txt
+# 会自动先装上运行时依赖 requirements.txt，再装下面的测试工具
+
+-r requirements.txt
+
+# 单元测试框架（tests/ 目录为 pytest 风格）
+pytest>=8.0.0

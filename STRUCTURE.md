@@ -21,7 +21,8 @@ memory_vault/
 ├── backend/                  # 后端（Python）
 │   ├── dashboard.py          # ★ HTTP API 服务（入口，:8765）
 │   ├── mcp_server.py         # MCP 协议服务（stdio / streamable-http）
-│   ├── requirements.txt      # 依赖清单
+│   ├── requirements.txt      # 运行时依赖
+│   ├── requirements-dev.txt  # 开发/测试依赖(含 pytest)
 │   ├── .env                  # 环境变量（数据库路径、DeepSeek Key 等）
 │   ├── memory.db             # SQLite 主库（WAL 模式）
 │   ├── src/                  # 核心模块
