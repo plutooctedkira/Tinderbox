@@ -1,9 +1,9 @@
-# Memory Vault 记忆系统 — 结构与运行说明
+# Tinderbox 记忆系统 — 结构与运行说明
 
-> 路径：`C:\Users\PlutootedKira\memory_vault`
+> 路径：`C:\Users\PlutootedKira\Tinderbox`
 > 版本：v6.0 生产级（含后续演进：CJK 分词检索、命中加权、计划/日记/开发日志、Obsidian 迁移）
 
-Memory Vault 是一个基于 **SQLite + FTS5 + Python** 的高性能底层记忆与小说灵感引擎。
+Tinderbox 是一个基于 **SQLite + FTS5 + Python** 的高性能底层记忆与小说灵感引擎。
 前端是纯 HTML/JS 单页（无构建），后端是标准库 `http.server` 的轻量 API 服务，
 两者通过 `fetch('http://localhost:8765/api/...')` 通信，另有 MCP 服务供 AI 客户端挂载。
 
@@ -12,7 +12,7 @@ Memory Vault 是一个基于 **SQLite + FTS5 + Python** 的高性能底层记忆
 ## 一、目录结构
 
 ```
-memory_vault/
+Tinderbox/
 ├── frontend/                 # 前端（纯静态，无构建）
 │   ├── dashboard_v3.html     # 主看板（单文件：HTML + CSS + JS 全内联）
 │   ├── logo.png              # 侧栏/页头 logo
@@ -212,7 +212,7 @@ def segment_cjk(text):
 ### 启动后端
 
 ```bash
-cd C:\Users\PlutootedKira\memory_vault\backend
+cd C:\Users\PlutootedKira\Tinderbox\backend
 .venv\Scripts\activate          # 用虚拟环境（已有 .venv）
 python dashboard.py             # 监听 http://127.0.0.1:8765
 ```
@@ -222,7 +222,7 @@ python dashboard.py             # 监听 http://127.0.0.1:8765
 浏览器打开（或直接访问 http://127.0.0.1:8765）：
 
 ```
-C:\Users\PlutootedKira\memory_vault\frontend\dashboard_v3.html
+C:\Users\PlutootedKira\Tinderbox\frontend\dashboard_v3.html
 ```
 
 ### 每日衰减（可选，VPS/计划任务）
@@ -238,10 +238,10 @@ C:\Users\PlutootedKira\memory_vault\frontend\dashboard_v3.html
   "mcpServers": {
     "memory-vault": {
       "command": "python",
-      "args": ["C:\\Users\\PlutootedKira\\memory_vault\\backend\\mcp_server.py"],
+      "args": ["C:\\Users\\PlutootedKira\\Tinderbox\\backend\\mcp_server.py"],
       "env": {
         "DEEPSEEK_API_KEY": "sk-xxx",
-        "MEMORY_DB_PATH": "C:\\Users\\PlutootedKira\\memory_vault\\backend\\memory.db"
+        "MEMORY_DB_PATH": "C:\\Users\\PlutootedKira\\Tinderbox\\backend\\memory.db"
       }
     }
   }
