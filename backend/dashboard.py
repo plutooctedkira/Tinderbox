@@ -119,7 +119,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 a=conn.execute("SELECT COUNT(*) FROM memory_entries WHERE status='active' AND weight >= 1").fetchone()[0]
                 tc=conn.execute("SELECT COUNT(*) FROM memory_entries WHERE created_at >= ?",(today,)).fetchone()[0]
                 cf=conn.execute("SELECT COUNT(*) FROM memory_entries WHERE status='pending_merge'").fetchone()[0]
-                rec=conn.execute("SELECT entry_id,substr(content,1,80) AS content,category,confidence,weight,status,created_at FROM memory_entries ORDER BY created_at DESC LIMIT 20").fetchall()
+                rec=conn.execute("SELECT entry_id,substr(content,1,80) AS content,category,confidence,weight,status,created_at FROM memory_entries ORDER BY created_at DESC LIMIT 10").fetchall()
                 return self._json({"active":a,"today":tc,"conflicts":cf,"recent":[dict(r) for r in rec]})
             elif p.path == "/api/pin":
                 eid=q.get("id","")
