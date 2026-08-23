@@ -71,6 +71,21 @@ def insert_memory(
             category=category, content=content, confidence=confidence,
             mtype=mtype, meta=meta)
 
+    # 卷宗自动聚合（plan / fiction_inspiration，非关键路径，失败不阻断）
+    if get_feature_flag(conn, "feature.aggregate"):
+        agg_category = None
+        if category == "fiction_inspiration":
+            agg_category = "fiction_inspiration"
+        elif category == "task" and mtype and mtype.startswith("plan-"):
+            agg_category = "plan"
+        if agg_category:
+            try:
+                from .aggregator import aggregate_memory
+                aggregate_memory(conn, entry_id, user_id, agg_category,
+                                 content, keywords)
+            except Exception as e:
+                logger.warning("卷宗聚合失败: %s", e)
+
     return entry_id
 
 

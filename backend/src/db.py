@@ -54,6 +54,7 @@ FEATURE_FLAGS = {
     "feature.surface": ("true", "主动上下文浮现"),
     "feature.decay": ("true", "每日权重衰减与归档"),
     "feature.obsidian_export": ("true", "Obsidian .md 导出"),
+    "feature.aggregate": ("true", "卷宗自动聚合（plan/灵感主题归档）"),
 }
 
 
@@ -269,6 +270,23 @@ CREATE TABLE IF NOT EXISTS config (
     updated_at  TEXT DEFAULT (
         strftime('%Y-%m-%d %H:%M:%S', 'now', 'utc'))
 );
+
+-- ================================================================
+-- 9. 卷宗表（plan / fiction_inspiration 的主题聚合）
+-- ================================================================
+CREATE TABLE IF NOT EXISTS topics (
+    topic_id    TEXT PRIMARY KEY,
+    user_id     TEXT NOT NULL,
+    category    TEXT NOT NULL,   -- 'plan' 或 'fiction_inspiration'
+    title       TEXT NOT NULL,   -- 卷宗标题（主题名）
+    keywords    TEXT,            -- 关键词 JSON 数组
+    summary     TEXT,            -- 主题摘要
+    entry_count INTEGER DEFAULT 0,
+    created_at  TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%S', 'now', 'utc')),
+    updated_at  TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_topics_user_cat
+    ON topics(user_id, category);
 """
 
 
@@ -283,7 +301,10 @@ def init_db(db_path: str = DB_PATH) -> sqlite3.Connection:
                            # 计划的完成度 0-100。二元的"完成/未完成"表达不了
                            # "舰船UI重构做了一半"这种状态，用进度条代替开关
                            ("memory_entries", "progress INTEGER DEFAULT 0"),
-                           ("memory_entries_archive", "progress INTEGER DEFAULT 0")]:
+                           ("memory_entries_archive", "progress INTEGER DEFAULT 0"),
+                           # 卷宗聚合：关联的卷宗 id（plan / fiction_inspiration）
+                           ("memory_entries", "topic_id TEXT"),
+                           ("memory_entries_archive", "topic_id TEXT")]:
             try:
                 conn.execute(f"ALTER TABLE {table} ADD COLUMN {col}")
             except sqlite3.OperationalError:

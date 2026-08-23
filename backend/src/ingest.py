@@ -92,7 +92,8 @@ def _clean_json_response(raw: str) -> str:
     return cleaned
 
 
-def _call_deepseek_api(prompt: str, retries: int = DEEPSEEK_MAX_RETRIES) -> str:
+def _call_deepseek_api(prompt: str, retries: int = DEEPSEEK_MAX_RETRIES,
+                       system_prompt: str = EXTRACTION_SYSTEM_PROMPT) -> str:
     """调用 DeepSeek API，含指数退避重试"""
     if not DEEPSEEK_API_KEY or DEEPSEEK_API_KEY == "sk-placeholder":
         raise MemoryExtractionError(
@@ -110,7 +111,7 @@ def _call_deepseek_api(prompt: str, retries: int = DEEPSEEK_MAX_RETRIES) -> str:
             response = client.chat.completions.create(
                 model=DEEPSEEK_MODEL,
                 messages=[
-                    {"role": "system", "content": EXTRACTION_SYSTEM_PROMPT},
+                    {"role": "system", "content": system_prompt},
                     {"role": "user", "content": prompt},
                 ],
                 temperature=0.3,
@@ -209,3 +210,44 @@ def extract_fiction_inspiration(text: str) -> list[dict]:
     """专门提取小说灵感的便捷方法"""
     items = extract_memories_with_retry(text)
     return [i for i in items if i.get("category") == "fiction_inspiration"]
+
+
+TOPIC_MATCH_SYSTEM_PROMPT = """你是记忆卷宗归类助手。卷宗是同一主题/项目/故事线的记忆集合。
+
+给定一条新记忆和若干候选卷宗，判断新记忆属于哪个卷宗。
+
+规则：
+1. 如果新记忆与某个卷宗属于同一主题/项目/故事，返回该卷宗的 topic_id
+2. 如果都不匹配，返回 none
+3. 只返回 topic_id 或 "none"，不要任何其他文字或 Markdown
+"""
+
+
+def match_topic_via_llm(content: str, keywords: list,
+                        candidates: list) -> Optional[str]:
+    """LLM 判断新记忆属于哪个候选卷宗。返回 topic_id 或 None。"""
+    if not candidates:
+        return None
+
+    cand_text = "\n".join(
+        f"{c['topic_id']}: {c['title']}" for c in candidates
+    )
+    prompt = (
+        f"新记忆内容：\n{content}\n\n"
+        f"候选卷宗：\n{cand_text}\n\n"
+        f"新记忆属于哪个卷宗？只返回 topic_id 或 none。"
+    )
+
+    raw = _call_deepseek_api(prompt, system_prompt=TOPIC_MATCH_SYSTEM_PROMPT)
+    result = raw.strip().strip('"\'`').strip()
+
+    valid_ids = {c["topic_id"] for c in candidates}
+    if result in valid_ids:
+        return result
+    if result.lower() == "none":
+        return None
+    # 兜底：LLM 可能返回带额外文字的 topic_id，尝试从结果里提取
+    for tid in valid_ids:
+        if tid in result:
+            return tid
+    return None
