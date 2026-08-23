@@ -1,5 +1,5 @@
 ﻿import json, os, sys, sqlite3, urllib.parse
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from socketserver import ThreadingMixIn
 
@@ -116,10 +116,12 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 return self._json({"total":t,"active":a,"archived":ar,"superseded":s,"logs_total":l,"avg_weight":round(aw or 0,2),"by_category":bc})
             elif p.path == "/api/dashboard":
                 today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+                days = int(q.get("days", 3))
+                cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S")
                 a=conn.execute("SELECT COUNT(*) FROM memory_entries WHERE status='active' AND weight >= 1").fetchone()[0]
                 tc=conn.execute("SELECT COUNT(*) FROM memory_entries WHERE created_at >= ?",(today,)).fetchone()[0]
                 cf=conn.execute("SELECT COUNT(*) FROM memory_entries WHERE status='pending_merge'").fetchone()[0]
-                rec=conn.execute("SELECT entry_id,substr(content,1,80) AS content,category,confidence,weight,status,created_at FROM memory_entries ORDER BY created_at DESC LIMIT 10").fetchall()
+                rec=conn.execute("SELECT entry_id,substr(content,1,80) AS content,category,confidence,weight,status,created_at FROM memory_entries WHERE created_at >= ? ORDER BY created_at DESC LIMIT 200",(cutoff,)).fetchall()
                 return self._json({"active":a,"today":tc,"conflicts":cf,"recent":[dict(r) for r in rec]})
             elif p.path == "/api/pin":
                 eid=q.get("id","")
