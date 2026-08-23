@@ -2,7 +2,9 @@
 Memory Vault - MCP 协议服务入口
 
 提供:
-- 4 个 Tool:  store_memory / extract_and_store / query_memories / supersede_memory
+- 10 个 Tool: store_memory / extract_and_store_from_text / query_memories /
+  write_diary / read_diary / create_plan / list_plans / read_plans /
+  set_plan_progress / supersede_memory
 - 1 个 Resource: 主动上下文浮现
 """
 
@@ -183,8 +185,15 @@ def read_diary(user_id: str = "default", limit: int = 10, query: str = "") -> li
     conn = get_db_connection()
     try:
         if query.strip():
-            hits = retrieve_memories(conn, user_id, query, top_k=limit * 3)
-            return [h for h in hits if h.get("category") == "diary"][:limit]
+            rows = conn.execute(
+                """SELECT entry_id, content, created_at, weight
+                   FROM memory_entries
+                   WHERE user_id = ? AND category = 'diary' AND status = 'active'
+                     AND content LIKE ?
+                   ORDER BY created_at DESC LIMIT ?""",
+                (user_id, f"%{query}%", limit)
+            ).fetchall()
+            return [dict(r) for r in rows]
         rows = conn.execute(
             """SELECT entry_id, content, created_at, weight
                FROM memory_entries
@@ -249,6 +258,46 @@ def list_plans(user_id: str = "default", plan_type: str = "",
             sql.append("AND type = ?")
             args.append(plan_type)
         sql.append("ORDER BY status, created_at DESC LIMIT 200")
+        rows = conn.execute(" ".join(sql), args).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+@mcp.tool()
+def read_plans(user_id: str = "default", plan_type: str = "",
+               include_completed: bool = False, query: str = "",
+               limit: int = 50) -> list[dict]:
+    """读计划（直接按 type 过滤查询，不走通用检索）。
+
+    与 list_plans 的区别：多了 query 关键词过滤，可以直接搜计划内容。
+
+    Args:
+        user_id: 用户标识
+        plan_type: 可选，只看某一类（plan-life / plan-work / plan-dev）
+        include_completed: 是否连已完成的一起返回
+        query: 可选，关键词过滤（在计划内容里模糊匹配）
+        limit: 返回条数
+    """
+    conn = get_db_connection()
+    try:
+        if not get_feature_flag(conn, "feature.plan"):
+            return []
+        sql = ["SELECT entry_id, content, type AS plan_type, status, created_at,",
+               "COALESCE(progress,0) AS progress",
+               "FROM memory_entries",
+               "WHERE user_id = ? AND category = 'task' AND type LIKE 'plan-%'"]
+        args = [user_id]
+        sql.append("AND status IN ('active','completed')" if include_completed
+                   else "AND status = 'active'")
+        if plan_type:
+            sql.append("AND type = ?")
+            args.append(plan_type)
+        if query.strip():
+            sql.append("AND content LIKE ?")
+            args.append(f"%{query}%")
+        sql.append("ORDER BY status, created_at DESC LIMIT ?")
+        args.append(limit)
         rows = conn.execute(" ".join(sql), args).fetchall()
         return [dict(r) for r in rows]
     finally:
