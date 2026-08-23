@@ -359,6 +359,69 @@ class DashboardHandler(BaseHTTPRequestHandler):
             finally:
                 conn.close()
 
+        elif self.path == "/api/reclassify":
+            # 手动分配：修改记忆的分类和类型，并重新聚合卷宗
+            conn = get_db_connection()
+            try:
+                entry_id = body.get("entry_id")
+                category = body.get("category")
+                mtype = body.get("type")
+                valid = ["preference", "task", "decision", "knowledge",
+                         "fiction_inspiration", "diary"]
+                if category not in valid:
+                    return self._json({"error": "非法分类"}, 400)
+                # 记录旧卷宗（用于后续清理空卷宗）
+                old = conn.execute(
+                    "SELECT topic_id, user_id, content FROM memory_entries WHERE entry_id=?",
+                    (entry_id,)
+                ).fetchone()
+                old_topic_id = old["topic_id"] if old else None
+
+                # 更新分类/类型，并清除 topic_id（分类变了，卷宗归属失效）
+                conn.execute(
+                    "UPDATE memory_entries SET category=?, type=?, topic_id=NULL "
+                    "WHERE entry_id=?",
+                    (category, mtype or None, entry_id)
+                )
+                conn.commit()
+
+                # 清理旧卷宗：空了就删除，否则 entry_count 减 1
+                if old_topic_id:
+                    cnt = conn.execute(
+                        "SELECT COUNT(*) FROM memory_entries WHERE topic_id=?",
+                        (old_topic_id,)
+                    ).fetchone()[0]
+                    if cnt == 0:
+                        conn.execute("DELETE FROM topics WHERE topic_id=?", (old_topic_id,))
+                    else:
+                        conn.execute(
+                            "UPDATE topics SET entry_count = entry_count - 1 WHERE topic_id=?",
+                            (old_topic_id,)
+                        )
+                    conn.commit()
+
+                # 若新分类是计划/灵感，重新聚合到卷宗
+                if get_feature_flag(conn, "feature.aggregate"):
+                    row = conn.execute(
+                        "SELECT user_id, content FROM memory_entries WHERE entry_id=?",
+                        (entry_id,)
+                    ).fetchone()
+                    agg_category = None
+                    if row and category == "fiction_inspiration":
+                        agg_category = "fiction_inspiration"
+                    elif row and category == "task" and mtype and mtype.startswith("plan-"):
+                        agg_category = "plan"
+                    if agg_category:
+                        try:
+                            from src.aggregator import aggregate_memory
+                            aggregate_memory(conn, entry_id, row["user_id"],
+                                             agg_category, row["content"])
+                        except Exception:
+                            pass  # 聚合失败不影响分类修改
+                return self._json({"status": "ok", "category": category, "type": mtype})
+            finally:
+                conn.close()
+
         return self._json({"error":"Not found"},404)
 
 def main():
