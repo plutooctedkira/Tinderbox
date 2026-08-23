@@ -400,22 +400,17 @@ class DashboardHandler(BaseHTTPRequestHandler):
                         )
                     conn.commit()
 
-                # 若新分类是计划/灵感，重新聚合到卷宗
-                if get_feature_flag(conn, "feature.aggregate"):
+                # 若新分类是小说灵感，重新聚合到卷宗
+                if get_feature_flag(conn, "feature.aggregate") and category == "fiction_inspiration":
                     row = conn.execute(
                         "SELECT user_id, content FROM memory_entries WHERE entry_id=?",
                         (entry_id,)
                     ).fetchone()
-                    agg_category = None
-                    if row and category == "fiction_inspiration":
-                        agg_category = "fiction_inspiration"
-                    elif row and category == "task" and mtype and mtype.startswith("plan-"):
-                        agg_category = "plan"
-                    if agg_category:
+                    if row:
                         try:
                             from src.aggregator import aggregate_memory
                             aggregate_memory(conn, entry_id, row["user_id"],
-                                             agg_category, row["content"])
+                                             "fiction_inspiration", row["content"])
                         except Exception:
                             pass  # 聚合失败不影响分类修改
                 return self._json({"status": "ok", "category": category, "type": mtype})

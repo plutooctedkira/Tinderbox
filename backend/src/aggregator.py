@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 logger = logging.getLogger("memory.aggregator")
 
 # 聚合支持的分类 key（与 memory_entries 的映射在 storage.py 里做）
-AGG_CATEGORIES = ("plan", "fiction_inspiration")
+AGG_CATEGORIES = ("fiction_inspiration",)
 
 # 关键词初筛用的常见停用词（单字 + 高频虚词）
 _STOPWORDS = set(
