@@ -95,12 +95,33 @@ def attach_to_topic(conn, entry_id, topic_id):
     logger.info("记忆 %s 追加到卷宗 %s", entry_id, topic_id)
 
 
+def _extract_title(conn, entry_id, content):
+    """提取卷宗标题：优先 meta 里的原始标题（ob_name / title），否则用 content 首行。
+
+    OB 迁来的记忆 meta 里有 ob_name（原始标题），content 首行往往是被提炼过的正文，
+    用首行当卷宗标题会把标题"改掉"。这里优先取原始标题。
+    """
+    row = conn.execute(
+        "SELECT meta FROM memory_entries WHERE entry_id = ?", (entry_id,)
+    ).fetchone()
+    if row and row["meta"]:
+        try:
+            meta = json.loads(row["meta"])
+            for key in ("ob_name", "title"):
+                val = meta.get(key)
+                if val and str(val).strip():
+                    return str(val).strip()[:50]
+        except (json.JSONDecodeError, TypeError):
+            pass
+    first_line = content.strip().split("\n")[0].strip()
+    return first_line[:50] or "未命名卷"
+
+
 def create_topic(conn, user_id, category, content, keywords, entry_id):
     """新建卷宗，并把记忆关联进去。返回新卷宗 topic_id。"""
     topic_id = f"topic-{uuid.uuid4().hex[:12]}"
-    # 标题用 content 首行 / 前 30 字
-    first_line = content.strip().split("\n")[0].strip()
-    title = first_line[:30] or "未命名卷"
+    # 标题优先用 meta 里的原始标题（ob_name / title），否则用 content 首行
+    title = _extract_title(conn, entry_id, content)
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     conn.execute(
         "INSERT INTO topics (topic_id, user_id, category, title, keywords, "
