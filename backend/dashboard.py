@@ -470,6 +470,37 @@ class DashboardHandler(BaseHTTPRequestHandler):
             finally:
                 conn.close()
 
+        elif self.path == "/api/delete":
+            # 删除单条记忆，并清理空卷宗
+            conn = get_db_connection()
+            try:
+                entry_id = body.get("entry_id")
+                old = conn.execute(
+                    "SELECT topic_id FROM memory_entries WHERE entry_id=?", (entry_id,)
+                ).fetchone()
+                old_topic_id = old["topic_id"] if old else None
+
+                conn.execute("DELETE FROM memory_entries WHERE entry_id=?", (entry_id,))
+                conn.commit()
+
+                if old_topic_id:
+                    cnt = conn.execute(
+                        "SELECT COUNT(*) FROM memory_entries WHERE topic_id=?",
+                        (old_topic_id,)
+                    ).fetchone()[0]
+                    if cnt == 0:
+                        conn.execute("DELETE FROM topics WHERE topic_id=?", (old_topic_id,))
+                    else:
+                        conn.execute(
+                            "UPDATE topics SET entry_count=entry_count-1 WHERE topic_id=?",
+                            (old_topic_id,)
+                        )
+                    conn.commit()
+
+                return self._json({"status": "ok"})
+            finally:
+                conn.close()
+
         return self._json({"error":"Not found"},404)
 
 def main():
