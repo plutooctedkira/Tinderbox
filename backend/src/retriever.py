@@ -151,7 +151,7 @@ def get_active_surfaced_memories(
                pin, anchor, last_accessed_at
         FROM memory_entries
         WHERE user_id = ?
-          AND status = 'active'
+          AND status = 'active' AND weight >= 1
         ORDER BY
             pin DESC,
             anchor DESC,

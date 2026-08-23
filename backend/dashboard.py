@@ -81,7 +81,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         conn = get_db_connection()
         try:
             if p.path == "/api/all":
-                rows = conn.execute("SELECT entry_id,category,type,content,confidence,status,weight,pin,created_at FROM memory_entries WHERE status='active' ORDER BY pin DESC,weight DESC,created_at DESC LIMIT 200").fetchall()
+                rows = conn.execute("SELECT entry_id,category,type,content,confidence,status,weight,pin,created_at FROM memory_entries WHERE status='active' AND weight >= 1 ORDER BY pin DESC,weight DESC,created_at DESC LIMIT 200").fetchall()
                 return self._json({"memories": [dict(r) for r in rows]})
             elif p.path == "/api/search":
                 sq = q.get("q","")
@@ -106,7 +106,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 return self._json({"memory": dict(row) if row else None})
             elif p.path == "/api/stats":
                 t=conn.execute("SELECT COUNT(*) FROM memory_entries").fetchone()[0]
-                a=conn.execute("SELECT COUNT(*) FROM memory_entries WHERE status='active'").fetchone()[0]
+                a=conn.execute("SELECT COUNT(*) FROM memory_entries WHERE status='active' AND weight >= 1").fetchone()[0]
                 ar=conn.execute("SELECT COUNT(*) FROM memory_entries WHERE status='archived'").fetchone()[0]
                 s=conn.execute("SELECT COUNT(*) FROM memory_entries WHERE status='superseded'").fetchone()[0]
                 l=conn.execute("SELECT COUNT(*) FROM memory_logs").fetchone()[0]
@@ -116,7 +116,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 return self._json({"total":t,"active":a,"archived":ar,"superseded":s,"logs_total":l,"avg_weight":round(aw or 0,2),"by_category":bc})
             elif p.path == "/api/dashboard":
                 today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-                a=conn.execute("SELECT COUNT(*) FROM memory_entries WHERE status='active'").fetchone()[0]
+                a=conn.execute("SELECT COUNT(*) FROM memory_entries WHERE status='active' AND weight >= 1").fetchone()[0]
                 tc=conn.execute("SELECT COUNT(*) FROM memory_entries WHERE created_at >= ?",(today,)).fetchone()[0]
                 cf=conn.execute("SELECT COUNT(*) FROM memory_entries WHERE status='pending_merge'").fetchone()[0]
                 rec=conn.execute("SELECT entry_id,substr(content,1,80) AS content,category,confidence,weight,status,created_at FROM memory_entries ORDER BY created_at DESC LIMIT 20").fetchall()
