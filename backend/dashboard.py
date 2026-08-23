@@ -206,6 +206,16 @@ class DashboardHandler(BaseHTTPRequestHandler):
                         d["old"] = None
                     conflicts.append(d)
                 return self._json({"conflicts":conflicts})
+            elif p.path == "/api/topics":
+                rows = conn.execute("SELECT topic_id, category, title, keywords, summary, entry_count, created_at, updated_at FROM topics ORDER BY category, updated_at DESC").fetchall()
+                return self._json({"topics": [dict(r) for r in rows]})
+            elif p.path == "/api/topic":
+                tid = q.get("id", "")
+                topic = conn.execute("SELECT * FROM topics WHERE topic_id=?", (tid,)).fetchone()
+                if not topic:
+                    return self._json({"error": "not found"}, 404)
+                memories = conn.execute("SELECT entry_id, content, category, confidence, weight, status, created_at FROM memory_entries WHERE topic_id=? ORDER BY created_at DESC", (tid,)).fetchall()
+                return self._json({"topic": dict(topic), "memories": [dict(r) for r in memories]})
             elif p.path == "/api/config":
                 rows = conn.execute("SELECT key, value, description, updated_at FROM config ORDER BY key").fetchall()
                 return self._json({"flags": [dict(r) for r in rows]})

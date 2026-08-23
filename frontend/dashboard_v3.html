@@ -78,6 +78,7 @@ main{flex:1;padding:20px;overflow-y:auto}
 <div class="section-title">日记 & 计划</div>
 <button onclick="switchTab('diary',this)">日记</button>
 <button onclick="switchTab('plans',this)">计划</button>
+<button onclick="switchTab('topics',this)">卷宗</button>
 <button onclick="switchTab('devlogs',this)">开发日志</button>
 <div class="section-title">管理</div>
 <button onclick="switchTab('archived',this)">归档记忆</button>
@@ -96,7 +97,7 @@ var FN={high:'高',medium:'中',low:'低'},SN={active:'活跃',completed:'已完
 var PT={'plan-life':'生活','plan-work':'工作','plan-dev':'开发'};
 function api(p){return fetch(API+'/api'+p).then(function(r){return r.json()})}
 function post(p,d){return fetch(API+'/api'+p,{method:'POST',body:JSON.stringify(d||{}),headers:{'Content-Type':'application/json'}}).then(function(r){return r.json()})}
-function switchTab(tab,btn){currentTab=tab;var _f=document.getElementById('fab');if(_f&&tab!=='all')_f.remove();var bs=document.querySelectorAll('.sidebar button');for(var i=0;i<bs.length;i++)bs[i].classList.remove('active');if(btn)btn.classList.add('active');if(tab==='dashboard')showDashboard();else if(tab==='all')loadAll();else if(tab==='search')showSearch();else if(tab==='add')showAddForm();else if(tab==='diary')showDiary();else if(tab==='plans')showPlans();else if(tab==='devlogs')showDevLogs();else if(tab==='archived')showArchived();else if(tab==='flags')showFlags();else if(tab==='stats')loadStats();}
+function switchTab(tab,btn){currentTab=tab;var _f=document.getElementById('fab');if(_f&&tab!=='all')_f.remove();var bs=document.querySelectorAll('.sidebar button');for(var i=0;i<bs.length;i++)bs[i].classList.remove('active');if(btn)btn.classList.add('active');if(tab==='dashboard')showDashboard();else if(tab==='all')loadAll();else if(tab==='search')showSearch();else if(tab==='add')showAddForm();else if(tab==='diary')showDiary();else if(tab==='plans')showPlans();else if(tab==='topics')showTopics();else if(tab==='devlogs')showDevLogs();else if(tab==='archived')showArchived();else if(tab==='flags')showFlags();else if(tab==='stats')loadStats();}
 function esc(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML}
 function closeModal(){document.getElementById('mo').classList.remove('on')}
 function closeModalOuter(e){if(e.target===document.getElementById('mo'))closeModal()}
@@ -199,6 +200,8 @@ function showTodayPop(){api('/all').then(function(d){var today=new Date().toISOS
 function closeConflict(){document.getElementById('co').classList.remove('on')}
 function showFlags(){api('/config').then(function(d){var flags=d.flags||[];var h='<div class="dash-header"><h3>功能开关</h3></div><p style="color:var(--muted);font-size:12px;margin-bottom:14px">控制各功能模块的启用/停用，改动即时生效。</p>';if(!flags.length)h+='<div class="empty">暂无开关</div>';for(var i=0;i<flags.length;i++){var f=flags[i],on=f.value==='true';h+='<div class="flag-row"><div><div class="flag-name">'+esc(f.key)+'</div><div class="flag-desc">'+esc(f.description||'')+'</div></div><label class="switch"><input type="checkbox" '+(on?'checked':'')+' onchange="toggleFlag(\''+f.key+'\',this.checked)"><span class="slider"></span></label></div>'}document.getElementById('main').innerHTML=h})}
 function toggleFlag(key,on){post('/config',{key:key,value:on?'true':'false'}).then(function(d){if(d.error){alert(d.error);showFlags()}})}
+function showTopics(){api('/topics').then(function(d){var topics=d.topics||[];var h='<div class="dash-header"><h3>卷宗</h3></div><p style="color:var(--muted);font-size:12px;margin-bottom:14px">计划与小说灵感会自动按主题归档到卷宗。</p>';if(!topics.length){h+='<div class="empty">暂无卷宗。plan 和灵感记忆会自动聚合到这里</div>'}else{h+='<div class="grid">';for(var i=0;i<topics.length;i++){var t=topics[i],isPlan=t.category==='plan';h+='<div class="card" onclick="showTopic(\''+t.topic_id+'\')"><div class="head"><span class="badge '+(isPlan?'bt':'bf')+'">'+(isPlan?'计划':'灵感')+'</span><span style="font-size:11px;color:var(--muted);margin-left:auto">'+t.entry_count+' 条</span></div><div class="ct">'+esc(t.title)+'</div></div>'}h+='</div>'}document.getElementById('main').innerHTML=h})}
+function showTopic(id){api('/topic?id='+id).then(function(d){var t=d.topic,ms=d.memories||[];var isPlan=t.category==='plan';var h='<div class="dash-header"><h3>'+esc(t.title)+'</h3><span style="font-size:12px;color:var(--muted)">'+(isPlan?'计划卷宗':'灵感卷宗')+' · '+t.entry_count+' 条记忆</span></div><button class="btn-outline" onclick="showTopics()">← 返回卷宗</button><div class="grid" style="margin-top:12px">';for(var i=0;i<ms.length;i++){var m=ms[i];h+='<div class="card" onclick="showDetail(\''+m.entry_id+'\')"><div class="head"><span class="badge b'+m.category[0]+'">'+(CN[m.category]||m.category)+'</span><span class="badge b'+m.confidence[0]+'">'+(FN[m.confidence]||m.confidence)+'</span></div><div class="ct">'+esc(m.content)+'</div></div>'}h+='</div>';document.getElementById('main').innerHTML=h})}
 </script>
 </body>
 </html>
