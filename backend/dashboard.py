@@ -417,6 +417,59 @@ class DashboardHandler(BaseHTTPRequestHandler):
             finally:
                 conn.close()
 
+        elif self.path == "/api/edit":
+            # 编辑记忆内容（可选同时改分类/类型，并重新聚合）
+            conn = get_db_connection()
+            try:
+                entry_id = body.get("entry_id")
+                content = body.get("content")
+                category = body.get("category")
+                mtype = body.get("type")
+                if not content or not content.strip():
+                    return self._json({"error": "内容不能为空"}, 400)
+                valid = ["preference", "task", "decision", "knowledge",
+                         "fiction_inspiration", "diary"]
+                if category not in valid:
+                    return self._json({"error": "非法分类"}, 400)
+
+                old = conn.execute(
+                    "SELECT category, topic_id, user_id FROM memory_entries WHERE entry_id=?",
+                    (entry_id,)
+                ).fetchone()
+                old_topic_id = old["topic_id"] if old else None
+
+                conn.execute(
+                    "UPDATE memory_entries SET content=?, category=?, type=?, topic_id=NULL WHERE entry_id=?",
+                    (content, category, mtype or None, entry_id)
+                )
+                conn.commit()
+
+                if old_topic_id:
+                    cnt = conn.execute(
+                        "SELECT COUNT(*) FROM memory_entries WHERE topic_id=?",
+                        (old_topic_id,)
+                    ).fetchone()[0]
+                    if cnt == 0:
+                        conn.execute("DELETE FROM topics WHERE topic_id=?", (old_topic_id,))
+                    else:
+                        conn.execute(
+                            "UPDATE topics SET entry_count=entry_count-1 WHERE topic_id=?",
+                            (old_topic_id,)
+                        )
+                    conn.commit()
+
+                if get_feature_flag(conn, "feature.aggregate") and category == "fiction_inspiration":
+                    try:
+                        from src.aggregator import aggregate_memory
+                        aggregate_memory(conn, entry_id, old["user_id"] if old else "default",
+                                         "fiction_inspiration", content)
+                    except Exception:
+                        pass
+
+                return self._json({"status": "ok"})
+            finally:
+                conn.close()
+
         return self._json({"error":"Not found"},404)
 
 def main():
